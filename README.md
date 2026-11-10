@@ -1,11 +1,10 @@
-# Grabador xlive
+# REcorder xlive
 
 Graba automáticamente las rooms que elijas y deja los vídeos listos para
 editar en el disco de esta máquina. Desde el navegador puedes agregar rooms,
 ver lo grabado, **cortar** por minutos y **unir** vídeos.
 
-Es una instalación independiente: no comparte nada con otros servidores ni
-proyectos.
+
 
 ---
 
