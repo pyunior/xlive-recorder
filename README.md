@@ -1,7 +1,7 @@
 # Grabador xlive
 
-Graba automáticamente las rooms que elijáis y deja los vídeos listos para
-editar en el disco de esta máquina. Desde el navegador podéis agregar rooms,
+Graba automáticamente las rooms que elijas y deja los vídeos listos para
+editar en el disco de esta máquina. Desde el navegador puedes agregar rooms,
 ver lo grabado, **cortar** por minutos y **unir** vídeos.
 
 Es una instalación independiente: no comparte nada con otros servidores ni
@@ -20,7 +20,7 @@ bash /opt/xlive/deploy/setup.sh
 ```
 
 El instalador deja el servicio arrancado y en el último paso imprime la
-**dirección y la clave** para entrar. Apuntadla.
+**dirección y la clave** para entrar copiala.
 
 ### Antes de nada: el disco
 
@@ -38,13 +38,13 @@ Y reiniciar: `systemctl restart xlive`
 
 **Nada se borra nunca de forma automática.** Cuando el disco baje del 5 %
 libre, el grabador se detiene y lo avisa en el registro, pero no toca ningún
-fichero. Hacer sitio es decisión vuestra.
+fichero. Hacer sitio es decisión propia
 
 ---
 
 ## Uso diario
 
-Abrid en el navegador la dirección que dio el instalador
+Abrir en el navegador la dirección que dio el instalador
 (`http://<ip-de-la-maquina>:5000/`). Usuario `admin` y la clave generada.
 
 ### Agregar una room
@@ -55,7 +55,7 @@ que estar pendiente.
 
 ### Cortar un vídeo
 
-Entrad en una room, marcad con la casilla los vídeos que queráis, poned los
+Entrar en una room, marcar con la casilla los vídeos que quiera, poner los
 minutos en **«Cortar cada \_\_ min»** y pulsad **Cortar**.
 
 Aparecen ficheros nuevos llamados `...-parte000.mp4`, `...-parte001.mp4`, etc.
@@ -66,15 +66,15 @@ pierde nada de calidad. A cambio, los trozos no salen exactos al minuto: el
 corte cae en el fotograma clave más cercano, con unos segundos de margen.
 
 > Las grabaciones ya nacen troceadas en bloques de 20 minutos, así que lo
-> normal es que no necesitéis cortar nada. Para cambiar ese tamaño, en `.env`:
+> normal es que no necesites cortar nada. Para cambiar ese tamaño, en `.env`:
 > `STRMNTR_SEGMENT_TIME=1200` (en segundos; 1200 = 20 min).
 
 ### Unir vídeos
 
-Marcad dos o más y pulsad **Unir**. Se unen en orden cronológico y el
+Marcad dos o más y pulsar **Unir**. Se unen en orden cronológico y el
 resultado se llama `<primero>-unido.mp4`.
 
-**Puede que os diga que no se pueden unir.** No es un fallo: ocurre cuando los
+**Puede que  diga que no se pueden unir.** No es un fallo: ocurre cuando los
 vídeos no tienen el mismo formato, normalmente porque la modelo **giró la
 cámara** y una parte está en vertical (1080x1440) y otra en horizontal
 (1920x1080). Unirlos obligaría a recodificar, que es lento y pierde calidad.
@@ -107,7 +107,7 @@ ficheros `.tmp.ts` a medias; son recuperables, avisad y se recuperan.
 ### La conexión a internet
 
 Cada room transmitiendo consume **6 Mbps de bajada sostenidos**. Cinco rooms a
-la vez son 30 Mbps todo el rato. Si la línea no da para las rooms que tengáis,
+la vez son 30 Mbps todo el rato. Si la línea no da para las rooms que tengs,
 las grabaciones saldrán con cortes y no hay ajuste que lo arregle: hay que
 reducir rooms o ampliar la línea.
 
@@ -127,4 +127,3 @@ reducir rooms o ampliar la línea.
 
 Tras cualquier cambio: `systemctl restart xlive`
 
-La documentación original del proyecto base está en `README-upstream.md`.
