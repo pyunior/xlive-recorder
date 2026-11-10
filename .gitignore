@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.log
+.env
+.venv
+venv*/
+myenv/
+.idea/
+config.json
+config.json.bak*
+downloads/
+watchdog.db
+watchdog.db-wal
+watchdog.db-shm
+stripchat_mouflon_keys.json

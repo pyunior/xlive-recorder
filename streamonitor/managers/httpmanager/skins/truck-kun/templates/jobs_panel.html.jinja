@@ -1,0 +1,19 @@
+<div class="jobs-head">
+    <h3 class="title">Trabajos</h3>
+    <span class="jobs-space">{{ free_space }}% libre{% if pending %} · {{ pending }} en cola{% endif %}</span>
+</div>
+{% if jobs|length == 0 %}
+    <p class="jobs-empty">Sin trabajos todavía. Marca vídeos y usa Cortar o Unir.</p>
+{% else %}
+<ul class="jobs-list">
+    {% for job in jobs %}
+    <li class="job job-{{ job.state | replace(' ', '-') }}">
+        <span class="job-state">{{ job.state }}</span>
+        <span class="job-title">{{ job.title }}</span>
+        {% if job.state == 'procesando' %}<span class="job-extra">{{ job.elapsed }}s</span>{% endif %}
+        {% if job.message %}<span class="job-extra">{{ job.message }}</span>{% endif %}
+        {% if job.results %}<span class="job-files">{{ job.results | join(', ') }}</span>{% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}

@@ -1,0 +1,6 @@
+{% if panel_message %}
+<div class="jobs-banner {{ panel_status }}">
+    <span>{{ panel_message }}</span>
+    <button hx-delete="/clear" hx-swap="outerHTML" hx-target="closest .jobs-banner" hx-trigger="click">cerrar</button>
+</div>
+{% endif %}

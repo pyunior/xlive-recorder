@@ -1,0 +1,25 @@
+[Unit]
+Description=Grabador xlive (Streamonitor)
+After=network.target
+# Si el disco está lleno el detector de espacio sale al arrancar; sin este
+# límite systemd entraría en bucle de reinicios.
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=__DIR__
+ExecStart=__DIR__/myenv/bin/python3 -u Downloader.py
+KillMode=process
+StandardOutput=journal
+StandardError=journal
+Restart=always
+RestartSec=30
+# El apagado limpio termina las grabaciones en curso (.tmp.ts -> .mp4) y eso
+# tarda. Con el default de 90 s systemd mataría el proceso a mitad de
+# conversión y dejaría ficheros .tmp.ts huérfanos.
+TimeoutStopSec=600
+
+[Install]
+WantedBy=multi-user.target
