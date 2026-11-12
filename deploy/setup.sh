@@ -8,6 +8,7 @@
 #
 # Vuelve a ser seguro ejecutarlo: no sobrescribe config.json ni .env.
 set -euo pipefail
+trap 'echo "ERROR: el instalador se detuvo en la línea $LINENO de setup.sh" >&2' ERR
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DIR"
@@ -38,7 +39,9 @@ fi
 
 # Genera la clave de la web si todavía está el marcador.
 if grep -q '^STRMNTR_PASSWORD=GENERAR-EN-INSTALACION' .env; then
-    NEWPASS="$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)"
+    # Sin tuberías: "tr < /dev/urandom | head" muere por SIGPIPE y con
+    # "set -eo pipefail" abortaba el script aquí sin imprimir nada.
+    NEWPASS="$(myenv/bin/python3 -c 'import secrets, string; print("".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(16)))')"
     sed -i "s|^STRMNTR_PASSWORD=.*|STRMNTR_PASSWORD=${NEWPASS}|" .env
     GENERATED="$NEWPASS"
 else
