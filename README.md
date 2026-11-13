@@ -103,6 +103,26 @@ convertir las grabaciones en curso a `.mp4`, y puede tardar unos minutos si hay
 varias grabando. Si se corta la luz o se mata el proceso a lo bruto, quedan
 ficheros `.tmp.ts` a medias; son recuperables, avisad y se recuperan.
 
+### «Site blocked the request» al agregar una room
+
+Algunas IPs (nos pasó con la línea de Cúcuta) reciben de Stripchat un bloqueo
+(HTTP 418) solo en la búsqueda del ID de la room, aunque grabar sí funcione.
+La room queda en **Blocked by site** y el grabador reintenta cada 5 minutos.
+
+El ID es un número fijo de cada room, el mismo desde cualquier máquina. Se
+copia a mano desde el `config.json` de una instancia donde sí resuelva (p. ej.
+Hetzner) al de la máquina bloqueada, con el servicio parado:
+
+```bash
+systemctl stop xlive
+nano /opt/xlive/config.json      # pegar la entrada con su "room_id"
+python3 -m json.tool /opt/xlive/config.json > /dev/null && echo OK
+systemctl start xlive
+```
+
+Si además el registro dice `Failed to get mouflon decryption key`, copiad
+también el fichero `stripchat_mouflon_keys.json` desde la máquina que funciona.
+
 ### La conexión a internet
 
 Cada room transmitiendo consume **6 Mbps de bajada sostenidos**. Cinco rooms a

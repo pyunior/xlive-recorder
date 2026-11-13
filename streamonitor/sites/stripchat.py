@@ -209,10 +209,21 @@ class StripChat(RoomIdBot):
                 auto='_auto' if not self.vr else ''
             )
         result = self.session.get(url, headers=self.headers, cookies=self.cookies)
-        m3u8_doc = result.content.decode("utf-8")
+        m3u8_doc = result.content.decode("utf-8", errors="replace")
+        if result.status_code != 200 or '#EXTM3U' not in m3u8_doc:
+            # The CDN refused the playlist: wrong status, geo-block or IP block.
+            self.logger.warning(f'Playlist request failed: HTTP {result.status_code}, '
+                                f'content-type {result.headers.get("content-type", "?")}, '
+                                f'body starts with: {m3u8_doc[:80]!r}')
+            return []
         psch, pkey, pdkey = StripChat._getMouflonFromM3U(m3u8_doc)
         if pdkey is None:
-            self.log(f'Failed to get mouflon decryption key')
+            if '#EXT-X-MOUFLON:' not in m3u8_doc:
+                self.logger.warning('Playlist has no #EXT-X-MOUFLON tag, cannot pick a decryption key')
+            else:
+                self.logger.warning('Failed to get mouflon decryption key: not in cache and '
+                                    'could not download the player script to discover it '
+                                    f'(copy {StripChat._mouflon_cache_filename} from a working instance)')
             return []
         variants = super().getPlaylistVariants(m3u_data=m3u8_doc)
         return [variant | {'url': f'{variant["url"]}{"&" if "?" in variant["url"] else "?"}psch={psch}&pkey={pkey}'}
