@@ -19,7 +19,7 @@ except ImportError:  # pragma: no cover - Python < 3.9
 
 # Statuses that mean "we could not tell". They must not be logged as a
 # disconnect: a rate limit or a transient error is not the model going away.
-INDETERMINATE = {Status.UNKNOWN, Status.ERROR, Status.RATELIMIT}
+INDETERMINATE = {Status.UNKNOWN, Status.ERROR, Status.RATELIMIT, Status.BLOCKED}
 
 HEARTBEAT_INTERVAL = 60
 HEARTBEAT_GAP_THRESHOLD = 240

@@ -45,6 +45,7 @@ class Bot(Thread):
         Status.LONG_OFFLINE: "No stream for a while",
         Status.PRIVATE: "Private show",
         Status.RATELIMIT: "Rate limited",
+        Status.BLOCKED: "Site blocked the request (Cloudflare/IP), retrying",
         Status.NOTEXIST: "Nonexistent user",
         Status.NOTRUNNING: "Not running",
         Status.ERROR: "Error on downloading",
@@ -419,9 +420,15 @@ class RoomIdBot(Bot):
             if self.room_id:
                 self.logger.debug(f'Found room ID: {self.room_id}')
 
-        if self.room_id is None:  # Still no room ID, streamer probably does not exist
-            self.logger.warning(f'Room ID not found')
-            self.sc = Status.NOTEXIST
+        if self.room_id is None:  # Still no room ID
+            if getattr(self, '_lookup_blocked', False):
+                # The site refused the lookup (e.g. Cloudflare 403): not proof
+                # that the streamer is missing, so keep running and retry later.
+                self.logger.warning('Room ID not found: the site blocked the lookup, will retry')
+                self.sc = Status.BLOCKED
+            else:  # streamer probably does not exist
+                self.logger.warning('Room ID not found')
+                self.sc = Status.NOTEXIST
 
         self.logger = self.getLogger()
         self.url = self.getWebsiteURL()

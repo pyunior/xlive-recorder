@@ -3,6 +3,7 @@ import json
 import os.path
 import random
 import re
+import time
 import requests
 import base64
 import hashlib
@@ -22,6 +23,9 @@ class StripChat(RoomIdBot):
     _mouflon_keys: dict = None
     _cached_keys: dict[str, bytes] = None
     _PRIVATE_STATUSES = frozenset(["private", "groupShow", "p2p", "virtualPrivate", "p2pVoice"])
+    # Si el sitio bloquea la consulta del room ID (Cloudflare 403), se reintenta
+    # cada tanto en vez de dar la room por inexistente y pararla para siempre.
+    _ROOM_RETRY_SECONDS = 300
     _OFFLINE_STATUSES = frozenset(["off", "idle"])
 
     _GENDER_MAP = {
@@ -48,6 +52,8 @@ class StripChat(RoomIdBot):
             except Exception as e:
                 print('Error initializing StripChat static data:', e)
 
+        self._lookup_blocked = False
+        self._next_room_lookup = 0.0
         super().__init__(username, room_id)
         self._id = None
         self.vr = False
@@ -227,9 +233,29 @@ class StripChat(RoomIdBot):
         try:
             data = r.json()
         except requests.exceptions.JSONDecodeError:
-            self.log('Failed to parse JSON response')
+            self._lookup_blocked = True
+            self.logger.warning(f'Failed to parse JSON response: {StripChat._describeNonJson(r)}')
             return None
+        self._lookup_blocked = False
         return data
+
+    @staticmethod
+    def _describeNonJson(r):
+        body = r.text[:4000] if r.text else ''
+        if 'Attention Required' in body or 'challenge-platform' in body or 'cf-mitigated' in r.headers:
+            return f'HTTP {r.status_code}, Cloudflare blocked the request (IP/bot protection)'
+        return f'HTTP {r.status_code}, content-type {r.headers.get("content-type", "?")}'
+
+    def _retryRoomId(self):
+        now = time.time()
+        if now < self._next_room_lookup:
+            return
+        self._next_room_lookup = now + StripChat._ROOM_RETRY_SECONDS
+        room_id = self.getRoomIdFromUsername(self.username)
+        if room_id:
+            self.room_id = room_id
+            self.url = self.getWebsiteURL()
+            self.log(f'Room ID found after retry: {room_id}')
 
     def _update_lastInfo(self, data):
         if data is None:
@@ -274,14 +300,16 @@ class StripChat(RoomIdBot):
         try:
             item = r.json().get('item') or {}
         except requests.exceptions.JSONDecodeError:
-            self.log('Failed to parse JSON response (user api)')
+            self._lookup_blocked = True
+            self.logger.warning(f'Failed to parse JSON response (user api): {StripChat._describeNonJson(r)}')
             return None
+        self._lookup_blocked = False
         return str(item['id']) if 'id' in item else None
 
     def getStatus(self):
         data = self._getStatusData(self.username)
         if data is None:
-            return Status.UNKNOWN
+            return Status.BLOCKED if self._lookup_blocked else Status.UNKNOWN
 
         error = self._update_lastInfo(data)
         if error:
@@ -320,8 +348,14 @@ class StripChat(RoomIdBot):
         for streamer in streamers:
             if not isinstance(streamer, StripChat):
                 continue
+            if not streamer.room_id:
+                streamer._retryRoomId()
             if streamer.room_id:
                 model_ids[streamer.room_id] = streamer
+            elif streamer._lookup_blocked:
+                streamer.setStatus(Status.BLOCKED)
+            else:
+                streamer.setStatus(Status.NOTEXIST)
 
         base_url = 'https://stripchat.com/api/front/models/list?'
         batch_num = 100
@@ -335,7 +369,9 @@ class StripChat(RoomIdBot):
             try:
                 data = r.json()
             except requests.exceptions.JSONDecodeError:
-                print('Failed to parse JSON response')
+                print(f'[SC] Bulk status: failed to parse JSON response: {cls._describeNonJson(r)}')
+                for streamer in model_ids.values():
+                    streamer.setStatus(Status.BLOCKED)
                 return
             data_map |= {str(model['id']): model for model in data.get('models', [])}
 
