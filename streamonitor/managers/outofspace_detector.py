@@ -56,6 +56,58 @@ class OOSDetector(Thread):
             return True
         return usage.free / usage.total * 100 > MIN_FREE_DISK_PERCENT
 
+    # Filesystems that live in RAM. Recording into one of these eats memory
+    # until the machine falls over, and everything is lost on reboot.
+    VOLATILE_FSTYPES = frozenset({'tmpfs', 'ramfs', 'devtmpfs'})
+
+    @staticmethod
+    def filesystem_type(path):
+        """Filesystem type backing `path`, via the longest matching mount."""
+        try:
+            target = os.path.abspath(path)
+            best, best_type = '', None
+            with open('/proc/mounts') as f:
+                for line in f:
+                    parts = line.split()
+                    if len(parts) < 3:
+                        continue
+                    mount, fstype = parts[1].replace('\\040', ' '), parts[2]
+                    if (target == mount or target.startswith(mount.rstrip('/') + '/')) \
+                            and len(mount) > len(best):
+                        best, best_type = mount, fstype
+            return best_type
+        except Exception:
+            return None
+
+    @staticmethod
+    def storage_sanity():
+        """-> (ok, message). Refuses to record into RAM.
+
+        This is not hypothetical: on a new install the recordings path sat
+        under /run because the folder had been created before the external
+        drive was mounted, so udisks mounted the drive one name over
+        ("Nuevo vol1") and the recorder quietly filled 1.5 GB of RAM while
+        3.5 TB sat untouched.
+        """
+        path, fell_back = OOSDetector.measured_path()
+        fstype = OOSDetector.filesystem_type(path)
+        if fstype in OOSDetector.VOLATILE_FSTYPES:
+            usage = shutil.disk_usage(path)
+            return False, (
+                f'The recordings folder is on a RAM filesystem and cannot be used: '
+                f'{os.path.abspath(path)} is {fstype} '
+                f'({usage.total / 1024 ** 3:.1f} GB total). Recording there would '
+                f'fill memory and be lost on reboot. '
+                f'STRMNTR_DOWNLOAD_DIR is "{DOWNLOADS_DIR}"'
+                + ('; that path does not exist, so this is the install disk'
+                   if fell_back else
+                   '. A path under /run/media only exists while a user session '
+                   'has the drive mounted, and the mount name shifts (e.g. '
+                   '"Nuevo vol" -> "Nuevo vol1") when the folder already exists. '
+                   'Mount the drive somewhere stable via /etc/fstab and point '
+                   'STRMNTR_DOWNLOAD_DIR there'))
+        return True, ''
+
     @staticmethod
     def threshold_message():
         path, fell_back = OOSDetector.measured_path()

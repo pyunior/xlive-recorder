@@ -24,6 +24,11 @@ def is_docker():
 
 
 def main():
+    storage_ok, storage_problem = OOSDetector.storage_sanity()
+    if not storage_ok:
+        print(storage_problem)
+        sys.exit(1)
+
     if not OOSDetector.disk_space_good():
         print(OOSDetector.threshold_message())
         sys.exit(1)

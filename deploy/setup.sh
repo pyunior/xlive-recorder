@@ -57,6 +57,16 @@ df -h "$RECDIR" | tail -1 | awk '{print "   disco: "$2" total, "$4" libres ("$5"
 
 echo "== 5/6 Servicio systemd =="
 sed "s|__DIR__|$DIR|g" deploy/streamonitor.service > /etc/systemd/system/xlive.service
+
+# Que systemd no arranque el grabador antes de que el disco de grabaciones
+# esté montado. Sin esto, al arrancar la máquina el grabador puede crear la
+# carpeta sobre el punto de montaje vacío y grabar al disco equivocado: eso
+# fue lo que mandó las grabaciones a un tmpfs en una instalación.
+RECABS="$(cd "$RECDIR" 2>/dev/null && pwd || echo "")"
+if [ -n "$RECABS" ] && [ "$RECABS" != "$DIR/downloads" ]; then
+    sed -i "/^After=/a RequiresMountsFor=$RECABS" /etc/systemd/system/xlive.service
+    echo "   el servicio esperará a que esté montado: $RECABS"
+fi
 systemctl daemon-reload
 systemctl enable xlive.service >/dev/null
 echo "   servicio xlive.service instalado."

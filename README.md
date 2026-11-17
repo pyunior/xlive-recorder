@@ -39,6 +39,48 @@ Y reiniciar: `systemctl restart xlive`
 libre, el grabador se detiene y lo avisa en el registro, pero no toca ningún
 fichero. Hacer sitio es decisión propia
 
+
+> **Si al arrancar dice «Free space is under threshold»** y creéis que hay
+> sitio de sobra, leed el mensaje completo: dice qué sistema de ficheros ha
+> medido y con qué números. Dos causas habituales:
+>
+> - `STRMNTR_DOWNLOAD_DIR` apunta a una ruta que **no existe**, así que mide
+>   el disco de la instalación en vez del disco grande. El mensaje lo avisa.
+> - El umbral es un **porcentaje**: 5 % de 4 TB son 200 GB. Si queréis un
+>   suelo en GB en vez de un porcentaje, usad `STRMNTR_MIN_FREE_GB`.
+
+### El disco de grabaciones: montadlo en un sitio fijo
+
+**No apuntéis `STRMNTR_DOWNLOAD_DIR` a `/run/media/...`.** Esa ruta es un
+automontaje de sesión de usuario y tiene dos problemas graves:
+
+- Está dentro de `/run`, que es un **sistema de ficheros en RAM**. Si el
+  disco no está montado cuando el grabador arranca, crea la carpeta ahí y
+  graba en memoria: se llena la RAM y al reiniciar no queda nada. El
+  programa ahora se niega a arrancar si detecta esto, y lo explica.
+- El nombre del montaje **cambia**: si la carpeta ya existe, el sistema
+  monta el disco un nombre más allá (`Nuevo vol` → `Nuevo vol1`), así que la
+  ruta de la configuración deja de apuntar al disco.
+
+Montadlo con `/etc/fstab` en una ruta estable. Para un disco NTFS:
+
+```bash
+sudo blkid /dev/sdb2                      # copiad el UUID
+sudo mkdir -p /datos
+echo 'UUID=<vuestro-uuid>  /datos  ntfs3  defaults,uid=0,gid=0,umask=022,nofail,x-systemd.device-timeout=10  0 0' | sudo tee -a /etc/fstab
+sudo systemctl daemon-reload && sudo mount /datos
+sudo mkdir -p /datos/Grabaciones
+```
+
+Y en `.env`: `STRMNTR_DOWNLOAD_DIR=/datos/Grabaciones`
+
+El instalador añade `RequiresMountsFor` al servicio, así que systemd espera a
+que el disco esté montado antes de arrancar el grabador. Si cambiáis la ruta
+después, volved a ejecutar `deploy/setup.sh`.
+
+> NTFS funciona, pero en Linux va más lento y gasta más CPU que ext4. Para
+> grabar varios GB por hora, ext4 es bastante mejor si podéis formatearlo.
+
 ---
 
 ## Uso diario
