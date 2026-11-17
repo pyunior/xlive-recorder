@@ -293,7 +293,12 @@ class StripChat(RoomIdBot):
             self._update_lastInfo(data)
 
         if data is None or 'user' not in data:
-            return self._getRoomIdFromUserApi(username)
+            room_id = self._getRoomIdFromUserApi(username)
+            # Last resort: both v2 JSON endpoints answer HTTP 418 with an empty
+            # body (verified from two different networks, so it is the API being
+            # closed off, not our IP). The public room page still works and
+            # carries the model id in its embedded state.
+            return room_id or self._getRoomIdFromHtml(username)
         if 'user' not in data['user']:
             return None
         if 'id' not in data['user']['user']:
@@ -316,6 +321,57 @@ class StripChat(RoomIdBot):
             return None
         self._lookup_blocked = False
         return str(item['id']) if 'id' in item else None
+
+    # The id shows up several times in the page's embedded state; these two
+    # anchors were checked against six rooms whose ids were already known and
+    # matched every time.
+    _HTML_ID_PATTERNS = (
+        re.compile(r'"model"\s*:\s*\{\s*"id"\s*:\s*(\d+)'),
+        re.compile(r'"modelId"\s*:\s*(\d+)'),
+    )
+    _HTML_HEADERS = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Upgrade-Insecure-Requests': '1',
+    }
+
+    def _getRoomIdFromHtml(self, username):
+        """Scrape the room id off the public page when the JSON API refuses.
+
+        A 404 here is meaningful: the page is served to anyone, so its absence
+        means the model is really gone (renamed, deleted or banned) rather than
+        us being blocked. That lets the caller stop retrying forever.
+        """
+        headers = dict(self.headers)
+        headers.update(StripChat._HTML_HEADERS)
+        try:
+            r = self.session.get(f'https://stripchat.com/{username}', headers=headers)
+        except Exception as e:
+            self.logger.warning(f'Room page unreachable: {e.__class__.__name__}')
+            return None
+
+        if r.status_code == 404:
+            self._lookup_blocked = False      # proof it does not exist
+            self.logger.warning('Room page returns 404: the model no longer exists')
+            return None
+        if r.status_code != 200:
+            self._lookup_blocked = True
+            self.logger.warning(f'Room page refused: HTTP {r.status_code}')
+            return None
+
+        for pattern in StripChat._HTML_ID_PATTERNS:
+            match = pattern.search(r.text)
+            if match:
+                self._lookup_blocked = False
+                self.log(f'Room ID {match.group(1)} recovered from the room page')
+                return match.group(1)
+
+        self._lookup_blocked = True
+        self.logger.warning('Room page carried no model id')
+        return None
 
     def getStatus(self):
         data = self._getStatusData(self.username)
