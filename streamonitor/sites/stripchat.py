@@ -8,6 +8,7 @@ import requests
 import base64
 import hashlib
 
+from parameters import HTTP_TIMEOUT
 from streamonitor.bot import RoomIdBot
 from streamonitor.downloaders.hls import getVideoNativeHLS
 from streamonitor.enums import Status, Gender, COUNTRIES
@@ -62,7 +63,8 @@ class StripChat(RoomIdBot):
     @classmethod
     def getInitialData(cls):
         session = requests.Session()
-        r = session.get('https://stripchat.com/api/front/v3/config/static', headers=cls.headers)
+        r = session.get('https://stripchat.com/api/front/v3/config/static',
+                        headers=cls.headers, timeout=HTTP_TIMEOUT)
         if r.status_code != 200:
             raise Exception("Failed to fetch static data from StripChat")
         StripChat._static_data = r.json().get('static')

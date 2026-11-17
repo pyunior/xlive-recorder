@@ -1,5 +1,6 @@
 import re
 import requests
+from parameters import HTTP_TIMEOUT
 from streamonitor.bot import Bot
 from streamonitor.enums import Status, Gender
 
@@ -50,7 +51,8 @@ class Chaturbate(Bot):
         data = {"room_slug": self.username, "bandwidth": "high"}
 
         try:
-            r = requests.post("https://chaturbate.com/get_edge_hls_url_ajax/", headers=headers, data=data)
+            r = requests.post("https://chaturbate.com/get_edge_hls_url_ajax/", headers=headers,
+                              data=data, timeout=HTTP_TIMEOUT)
             self.lastInfo = r.json()
             status = self._parseStatus(self.lastInfo['room_status'])
             if status == status.PUBLIC and not self.lastInfo['url']:

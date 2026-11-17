@@ -5,7 +5,7 @@ import subprocess
 from threading import Thread
 from ffmpy import FFmpeg, FFRuntimeError
 from time import sleep
-from parameters import DEBUG, CONTAINER, SEGMENT_TIME, FFMPEG_PATH
+from parameters import DEBUG, CONTAINER, SEGMENT_TIME, FFMPEG_PATH, HTTP_TIMEOUT
 
 _http_lib = None
 if not _http_lib:
@@ -36,7 +36,18 @@ def getVideoNativeHLS(self, url, filename, m3u_processor=None):
         with open(tmpfilename, 'wb') as outfile:
             did_download = False
             while not self.stopDownloadFlag:
-                r = session.get(url, headers=self.headers, cookies=self.cookies)
+                try:
+                    r = session.get(url, headers=self.headers, cookies=self.cookies,
+                                    timeout=HTTP_TIMEOUT)
+                except requests.exceptions.RequestException as e:
+                    # Stop the download instead of hanging. Whatever is already
+                    # in the temp file gets converted by the post-processing
+                    # below, so the show is saved up to this point. A read with
+                    # no timeout used to block this thread forever, which kept
+                    # the clean shutdown from finishing until systemd killed us.
+                    self.logger.warning(f'Playlist no disponible ({e.__class__.__name__}), '
+                                        'se cierra la grabación')
+                    return
                 content = r.content.decode("utf-8")
                 if m3u_processor:
                     content = m3u_processor(content)
@@ -52,14 +63,24 @@ def getVideoNativeHLS(self, url, filename, m3u_processor=None):
                     self.debug('Downloading ' + chunk_uri)
                     if not chunk_uri.startswith("https://"):
                         chunk_uri = '/'.join(url.split('.m3u8')[0].split('/')[:-1]) + '/' + chunk_uri
-                    m = session.get(chunk_uri, headers=self.headers, cookies=self.cookies)
+                    try:
+                        m = session.get(chunk_uri, headers=self.headers, cookies=self.cookies,
+                                        timeout=HTTP_TIMEOUT)
+                    except requests.exceptions.RequestException as e:
+                        self.logger.warning(f'Segmento no descargado ({e.__class__.__name__}), '
+                                            'se cierra la grabación')
+                        return
                     if m.status_code != 200:
                         return
                     outfile.write(m.content)
                     if self.stopDownloadFlag:
                         return
                 if not did_download:
-                    sleep(10)
+                    # Interruptible: a plain sleep(10) delayed every shutdown.
+                    for _ in range(10):
+                        if self.stopDownloadFlag:
+                            return
+                        sleep(1)
 
     def terminate():
         self.stopDownloadFlag = True

@@ -13,11 +13,30 @@ import requests.cookies
 
 from streamonitor.enums import Status, COUNTRIES, Gender, GENDER_DATA
 import streamonitor.log as log
-from parameters import DOWNLOADS_DIR, DEBUG, WANTED_RESOLUTION, WANTED_RESOLUTION_PREFERENCE, CONTAINER, HTTP_USER_AGENT
+from parameters import DOWNLOADS_DIR, DEBUG, WANTED_RESOLUTION, WANTED_RESOLUTION_PREFERENCE, CONTAINER, HTTP_USER_AGENT, HTTP_TIMEOUT
 from streamonitor.downloaders.ffmpeg import getVideoFfmpeg
 from streamonitor.models import VideoData
 
 LOADED_SITES = set()
+
+
+class TimeoutSession(requests.Session):
+    """A Session that applies a default timeout to every request.
+
+    requests has no session-level timeout, so without this each of the ~30
+    call sites across the site handlers has to remember to pass one -- and
+    they did not. A single hung read blocks the bot thread forever, which
+    stops the clean shutdown from finishing and gets the process SIGKILLed
+    mid-recording. Call sites can still override by passing `timeout`.
+    """
+
+    def __init__(self, timeout=HTTP_TIMEOUT):
+        super().__init__()
+        self.default_timeout = timeout
+
+    def request(self, *args, **kwargs):
+        kwargs.setdefault('timeout', self.default_timeout)
+        return super().request(*args, **kwargs)
 
 
 class Bot(Thread):
@@ -64,7 +83,7 @@ class Bot(Thread):
         self.username = username
         self.logger = self.getLogger()
 
-        self.session = requests.Session()
+        self.session = TimeoutSession()
         self.session.headers.update(self.headers)
         self.cookies = None
         self.cookieUpdater = None

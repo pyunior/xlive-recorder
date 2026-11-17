@@ -150,3 +150,14 @@ WATCHDOG_DAY_START_HOUR = env.int("STRMNTR_WD_DAY_START_HOUR", 6)
 
 # Days of history kept in the event log.
 WATCHDOG_RETENTION_DAYS = env.int("STRMNTR_WD_RETENTION", 120)
+
+
+# Timeout de las peticiones HTTP: (conexión, lectura) en segundos.
+# El de lectura es por cada trozo recibido, no para la descarga entera, así que
+# una descarga lenta pero que avanza no se corta.
+# Sin esto, una lectura colgada bloquea el hilo del bot para siempre: el apagado
+# limpio no puede terminar y systemd acaba matando el proceso a los 600 s,
+# dejando grabaciones a medias. Pasó el 22 y el 28 de octubre de 2026.
+HTTP_CONNECT_TIMEOUT = env.float("STRMNTR_HTTP_CONNECT_TIMEOUT", 10.0)
+HTTP_READ_TIMEOUT = env.float("STRMNTR_HTTP_READ_TIMEOUT", 30.0)
+HTTP_TIMEOUT = (HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT)
