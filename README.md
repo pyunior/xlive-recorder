@@ -139,6 +139,7 @@ reducir rooms o ampliar la línea.
 | `STRMNTR_DOWNLOAD_DIR` | `downloads` | Dónde se guardan las grabaciones |
 | `STRMNTR_SEGMENT_TIME` | `1200` | Tamaño del bloque al grabar, en segundos |
 | `STRMNTR_MIN_FREE_SPACE` | `5.0` | % libre al que se detiene (no borra) |
+| `STRMNTR_MIN_FREE_GB` | `0` | Suelo absoluto en GB; alternativa al % (0 = off) |
 | `STRMNTR_HOST` | `0.0.0.0` | `0.0.0.0` la deja visible en la red local |
 | `STRMNTR_PORT` | `5000` | Puerto de la web |
 | `STRMNTR_PASSWORD` | — | Clave de la web (usuario `admin`) |

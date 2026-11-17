@@ -161,3 +161,9 @@ WATCHDOG_RETENTION_DAYS = env.int("STRMNTR_WD_RETENTION", 120)
 HTTP_CONNECT_TIMEOUT = env.float("STRMNTR_HTTP_CONNECT_TIMEOUT", 10.0)
 HTTP_READ_TIMEOUT = env.float("STRMNTR_HTTP_READ_TIMEOUT", 30.0)
 HTTP_TIMEOUT = (HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT)
+
+# Suelo absoluto de espacio libre, en GB, como alternativa al porcentaje.
+# El porcentaje es inútil en un disco grande: 5% de 4 TB reserva 200 GB, así
+# que el grabador se niega a arrancar con 150 GB libres, que dan para ~55 h.
+# Si se define (>0), basta con superar este suelo. 0 = desactivado.
+MIN_FREE_DISK_GB = env.float("STRMNTR_MIN_FREE_GB", 0.0)
