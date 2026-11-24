@@ -11,12 +11,11 @@ from parameters import WEBSERVER_HOST, WEBSERVER_PORT, WEBSERVER_PASSWORD, WEB_L
 import streamonitor.log as log
 from functools import wraps
 from secrets import compare_digest
-from streamonitor.bot import Bot, LOADED_SITES
+from streamonitor.bot import Bot, LOADED_SITES, enabled_sites
 from streamonitor.enums import Status
 from streamonitor.manager import Manager
 from streamonitor.managers.outofspace_detector import OOSDetector
 from streamonitor.utils import human_file_size
-from streamonitor.video import FFmpegError, check_joinable, describe, get_queue
 
 from .filters import status_icon, status_text
 from .mappers import web_status_lookup
@@ -28,8 +27,10 @@ class HTTPManager(Manager):
     def __init__(self, streamers):
         super().__init__(streamers)
         self.logger = log.Logger("manager")
-        self.loaded_site_names = [site.site for site in LOADED_SITES]
-        self.loaded_site_names.sort()
+        # Solo los sitios habilitados llegan al desplegable de "añadir sala":
+        # ofrecer 18 cuando solo uno está verificado invita a crear salas que
+        # nunca van a grabar.
+        self.loaded_site_names = sorted(site.site for site in enabled_sites())
 
         skin = WEBSERVER_SKIN
         if skin in os.listdir(os.path.join(os.path.dirname(__file__), 'skins')):
@@ -165,7 +166,6 @@ class HTTPManager(Manager):
             return render_template('recordings.html.jinja', **context), status_code
 
         @app.route('/video/<user>/<site>/<path:filename>', methods=['GET'])
-        @login_required
         def get_video(user, site, filename):
             streamer = cast(Union[Bot, None], self.getStreamer(user, site))
             return send_from_directory(
@@ -455,94 +455,5 @@ class HTTPManager(Manager):
                 'confirm_deletes': confirm_deletes(request.headers.get('User-Agent')),
             } | filter_context
             return render_template('streamers_result.html.jinja', **context), status_code
-
-
-        # ---- Cortar y unir grabaciones (ffmpeg, sin recodificar) ----
-
-        def safe_paths(streamer, filenames):
-            """Resolve request-supplied names strictly inside the streamer's
-            folder. Never trust the names: a crafted one must not reach another
-            directory."""
-            folder = os.path.abspath(streamer.outputFolder)
-            resolved = []
-            for name in filenames:
-                if not name:
-                    continue
-                candidate = os.path.abspath(os.path.join(folder, os.path.basename(name)))
-                if os.path.dirname(candidate) != folder or not os.path.isfile(candidate):
-                    raise FFmpegError(f'Fichero no válido: {name}')
-                resolved.append(candidate)
-            return resolved
-
-        def jobs_panel(message='', status=''):
-            """POST responses render only the banner, so the list's own 3s
-            refresh cannot wipe an error the editor still needs to read."""
-            return render_template('jobs_message.html.jinja',
-                                   panel_message=message, panel_status=status)
-
-        @app.route('/jobs/panel', methods=['GET'])
-        @login_required
-        def get_jobs_panel():
-            queue = get_queue()
-            snapshot = queue.snapshot() if queue else {'jobs': [], 'pending': 0}
-            return render_template(
-                'jobs_panel.html.jinja',
-                jobs=snapshot['jobs'][:12],
-                pending=snapshot['pending'],
-                free_space=round(OOSDetector.free_space(), 1))
-
-        @app.route('/videos/<user>/<site>/cut', methods=['POST'])
-        @login_required
-        def cut_videos(user, site):
-            streamer = cast(Union[Bot, None], self.getStreamer(user, site))
-            queue = get_queue()
-            if streamer is None or queue is None:
-                return jobs_panel('No disponible', 'error'), 200
-            try:
-                minutes = int(request.form.get('minutes', 0))
-            except ValueError:
-                minutes = 0
-            if minutes <= 0:
-                return jobs_panel('Indica en cuántos minutos cortar', 'error'), 200
-
-            names = request.form.getlist('filenames')
-            if not names:
-                return jobs_panel('Selecciona al menos un vídeo', 'error'), 200
-            try:
-                paths = safe_paths(streamer, names)
-                for path in paths:
-                    queue.submit_cut(path, minutes)
-            except FFmpegError as e:
-                return jobs_panel(str(e), 'error'), 200
-            return jobs_panel(
-                f'{len(paths)} vídeo(s) en cola para cortar cada {minutes} min', 'ok'), 200
-
-        @app.route('/videos/<user>/<site>/join', methods=['POST'])
-        @login_required
-        def join_videos(user, site):
-            streamer = cast(Union[Bot, None], self.getStreamer(user, site))
-            queue = get_queue()
-            if streamer is None or queue is None:
-                return jobs_panel('No disponible', 'error'), 200
-
-            names = request.form.getlist('filenames')
-            if len(names) < 2:
-                return jobs_panel('Selecciona 2 o más vídeos para unir', 'error'), 200
-            try:
-                paths = safe_paths(streamer, names)
-                paths.sort()  # chronological: filenames carry the timestamp
-                compatible, groups, problems = check_joinable(paths)
-                if problems:
-                    return jobs_panel('; '.join(problems), 'error'), 200
-                if not compatible:
-                    detail = ' · '.join(
-                        f'{describe(files[0])} ({len(files)})' for files in groups.values())
-                    return jobs_panel(
-                        'No se pueden unir sin recodificar: cambian de formato. '
-                        f'{detail}. Une por separado los de cada formato.', 'error'), 200
-                queue.submit_join(paths, request.form.get('output') or None)
-            except FFmpegError as e:
-                return jobs_panel(str(e), 'error'), 200
-            return jobs_panel(f'{len(paths)} vídeos en cola para unir', 'ok'), 200
 
         app.run(host=WEBSERVER_HOST, port=WEBSERVER_PORT)

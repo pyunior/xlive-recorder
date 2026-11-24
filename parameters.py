@@ -167,3 +167,12 @@ HTTP_TIMEOUT = (HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT)
 # que el grabador se niega a arrancar con 150 GB libres, que dan para ~55 h.
 # Si se define (>0), basta con superar este suelo. 0 = desactivado.
 MIN_FREE_DISK_GB = env.float("STRMNTR_MIN_FREE_GB", 0.0)
+
+# Sitios que se ofrecen al añadir salas, separados por comas (nombre completo
+# o abreviatura: "StripChat" o "SC"). Vacío = todos los que trae el código.
+#
+# Acota SOLO lo que se puede añadir, no lo que se carga: las salas que ya
+# están en config.json se cargan siempre. Es deliberado, porque loadStreamers
+# se salta las salas cuyo sitio no resuelve y el siguiente saveConfig() las
+# borraría del fichero para siempre.
+ENABLED_SITES = env.str("STRMNTR_ENABLED_SITES", "")

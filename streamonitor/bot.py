@@ -13,11 +13,30 @@ import requests.cookies
 
 from streamonitor.enums import Status, COUNTRIES, Gender, GENDER_DATA
 import streamonitor.log as log
-from parameters import DOWNLOADS_DIR, DEBUG, WANTED_RESOLUTION, WANTED_RESOLUTION_PREFERENCE, CONTAINER, HTTP_USER_AGENT, HTTP_TIMEOUT
+from parameters import DOWNLOADS_DIR, DEBUG, WANTED_RESOLUTION, WANTED_RESOLUTION_PREFERENCE, CONTAINER, HTTP_USER_AGENT, HTTP_TIMEOUT, ENABLED_SITES
 from streamonitor.downloaders.ffmpeg import getVideoFfmpeg
 from streamonitor.models import VideoData
 
 LOADED_SITES = set()
+
+
+def enabled_sites():
+    """Site classes offered when adding a room.
+
+    ENABLED_SITES narrows what can be *added*, and nothing else. It stays out
+    of str2site() and loadStreamers() on purpose: a site that stops resolving
+    makes loadStreamers skip its rooms, and the next saveConfig() would drop
+    them from config.json permanently. Narrowing this list must never be able
+    to lose a room that already exists.
+    """
+    wanted = {w.strip().lower() for w in ENABLED_SITES.split(',') if w.strip()}
+    if not wanted:
+        return set(LOADED_SITES)
+    chosen = {cls for cls in LOADED_SITES
+              if cls.site.lower() in wanted
+              or cls.siteslug.lower() in wanted
+              or any(a.lower() in wanted for a in (cls.aliases or []))}
+    return chosen or set(LOADED_SITES)
 
 
 class TimeoutSession(requests.Session):

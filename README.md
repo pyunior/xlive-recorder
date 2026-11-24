@@ -94,6 +94,11 @@ En la pantalla principal, el formulario de arriba: nombre de la room y sitio.
 Queda vigilada y se graba sola cada vez que se conecte, sin que nadie tenga
 que estar pendiente.
 
+> El desplegable solo ofrece **StripChat**. El programa trae código para 17
+> sitios más, pero ninguno está verificado: una sala creada ahí aparecería
+> «en línea» y no grabaría nada. Si algún día hace falta otro, se añade a
+> `STRMNTR_ENABLED_SITES` en `.env` y se reinicia.
+
 ### Cortar un vídeo
 
 Entrar en una room, marcar con la casilla los vídeos que quiera, poner los
@@ -185,6 +190,7 @@ reducir rooms o ampliar la línea.
 | `STRMNTR_HOST` | `0.0.0.0` | `0.0.0.0` la deja visible en la red local |
 | `STRMNTR_PORT` | `5000` | Puerto de la web |
 | `STRMNTR_PASSWORD` | — | Clave de la web (usuario `admin`) |
+| `STRMNTR_ENABLED_SITES` | `StripChat` | Sitios que se ofrecen al añadir salas (vacío = todos) |
 | `STRMNTR_RESOLUTION` | `1080` | Calidad que se intenta grabar |
 
 Tras cualquier cambio: `systemctl restart xlive`

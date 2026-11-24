@@ -6,7 +6,7 @@ import terminaltables.terminal_io
 from terminaltables import AsciiTable
 import streamonitor.config as config
 import streamonitor.log as log
-from streamonitor.bot import Bot, LOADED_SITES
+from streamonitor.bot import Bot, LOADED_SITES, enabled_sites
 from streamonitor.managers.outofspace_detector import OOSDetector
 from streamonitor.managers.watchdog import get_watchdog
 
@@ -57,6 +57,12 @@ class Manager(Thread):
         if streamer:
             return 'Streamer already exists'
         elif username and site:
+            site_cls = Bot.str2site(site)
+            if site_cls and site_cls not in enabled_sites():
+                habilitados = ', '.join(sorted(c.site for c in enabled_sites()))
+                return (f'{site_cls.site} no esta habilitado en esta instalacion. '
+                        f'Habilitados: {habilitados}. '
+                        'Para cambiarlo, STRMNTR_ENABLED_SITES en .env')
             try:
                 streamer = Bot.createInstance(username, site)
                 self.streamers.append(streamer)
