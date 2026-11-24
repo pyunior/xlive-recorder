@@ -126,10 +126,17 @@ def build_report(store, rooms, t0, t1, tz, gap_threshold, title="Resumen de tran
     if active:
         lines.append(f"x̄ Promedio (activas): {fmt_duration(grand / len(active))}")
 
+    lines.append("")
     if downtime > 60:
-        lines.append("")
         lines.append(
             f"⚠️ Monitoreo caido {fmt_duration(downtime)} en la ventana; "
             "ese tiempo se descuenta y no se cuenta como transmision.")
+    else:
+        # A total of zero is ambiguous on its own: it could mean nobody
+        # transmitted, or that nobody was watching. Stating the coverage makes
+        # the figure self-explanatory, which matters most when it is zero --
+        # otherwise a quiet Monday reads like a broken recorder.
+        lines.append("✅ Monitoreo activo durante toda la ventana"
+                     + (": ninguna sala transmitio." if grand == 0 else "."))
 
     return "\n".join(lines)
