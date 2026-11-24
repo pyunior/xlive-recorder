@@ -364,15 +364,69 @@ class StripChat(RoomIdBot):
             self.logger.warning(f'Room page refused: HTTP {r.status_code}')
             return None
 
+        # The id has to be validated, not just extracted. For a name that does
+        # not exist the site answers HTTP 200 (not 404) with "modelId":0, and a
+        # room carrying id 0 would sit in the list recording nothing forever.
         for pattern in StripChat._HTML_ID_PATTERNS:
             match = pattern.search(r.text)
-            if match:
-                self._lookup_blocked = False
-                self.log(f'Room ID {match.group(1)} recovered from the room page')
-                return match.group(1)
+            if not match:
+                continue
+            room_id = match.group(1)
+            if not room_id.isdigit() or int(room_id) <= 0:
+                self._lookup_blocked = False      # placeholder: no such model
+                self.logger.warning(
+                    f'Room page reports model id {room_id}: no such model')
+                return None
+            # Confirm the id really belongs to this name. The bulk endpoint is
+            # independent of the page, so a mismatch means we scraped the wrong
+            # number rather than the model being gone.
+            real = self.getUsernameFromRoomId(room_id)
+            if real is None:
+                self.logger.warning(
+                    f'Room ID {room_id} from the room page could not be '
+                    'confirmed against the models list, discarding it')
+                return None
+            if real.lower() != username.lower():
+                self.logger.warning(
+                    f'Room ID {room_id} belongs to "{real}", not "{username}"; '
+                    'discarding it')
+                return None
+            self._lookup_blocked = False
+            self.log(f'Room ID {room_id} recovered from the room page')
+            return room_id
 
         self._lookup_blocked = True
         self.logger.warning('Room page carried no model id')
+        return None
+
+    def getUsernameFromRoomId(self, room_id):
+        """Resolve a model id to its current username.
+
+        This is what makes `add <id> StripChat` work: the framework already
+        treats a numeric username as a room id, but StripChat never provided
+        the lookup, so it ended up as NOTEXIST. Adding by id is the sturdier
+        route -- the id survives a rename, while the name-based path needs the
+        room page to still answer under that name.
+
+        Uses the bulk models/list endpoint, the only one the site still serves
+        (the v2 per-room endpoints answer HTTP 418 with an empty body).
+        """
+        try:
+            r = self.session.get(
+                f'https://stripchat.com/api/front/models/list?modelIds[]={room_id}',
+                headers=self.headers)
+            models = r.json().get('models', [])
+        except Exception as e:
+            self.logger.warning(
+                f'Could not resolve room ID {room_id}: {e.__class__.__name__}')
+            self._lookup_blocked = True
+            return None
+        for model in models:
+            if str(model.get('id')) == str(room_id) and model.get('username'):
+                self._lookup_blocked = False
+                return model['username']
+        # Not an id the site knows: the caller falls back to treating the
+        # value as a literal username, which is right for a numeric nickname.
         return None
 
     def getStatus(self):

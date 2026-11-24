@@ -65,6 +65,15 @@ class Manager(Thread):
                         'Para cambiarlo, STRMNTR_ENABLED_SITES en .env')
             try:
                 streamer = Bot.createInstance(username, site)
+                if streamer is None:
+                    return 'Failed to add: could not create the streamer'
+                # Adding by room ID resolves to a username, so the duplicate
+                # check done before this (which saw the raw id) could not have
+                # caught it. Without this, the same model lands twice.
+                existing = self.getStreamer(streamer.username, streamer.site)
+                if existing is not None:
+                    return (f'Streamer already exists: '
+                            f'[{existing.siteslug}] {existing.username}')
                 self.streamers.append(streamer)
                 streamer.start()
                 streamer.restart()
